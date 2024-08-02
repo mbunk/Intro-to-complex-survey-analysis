@@ -1,0 +1,8 @@
+---
+title: "Part 2"
+listing:
+  contents: part2
+  type: default
+page-layout: full
+title-block-banner: true
+---

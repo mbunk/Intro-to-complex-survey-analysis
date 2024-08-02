@@ -1,0 +1,463 @@
+---
+title: "1.2: Survey adjusted descriptive statistics"
+format:
+  html:
+    code-fold: true
+    code-tools: true
+editor: 
+  markdown: 
+    wrap: 100
+---
+
+This section covers: creating a survey design object, adjusted descriptive statistics and tables!
+
+----------------------------------------------------------------------------------------------------
+
+```{r library load 2, echo=F, message=F, warning=F, include=F}
+library(survey) # handling survey data with complex sampling design
+library(dplyr) # data manipulation
+library(ggplot2) # data visualisation
+library(questionr) # data visualisation with survey design objects
+library(gtsummary) # nice publication ready summary tables
+```
+
+## Load data
+
+Remember that we saved the wrangled dataset to the working directory in the previous section as an
+`RData` file in our workshop folder.
+
+```{r load cws rdata}
+root <- "C://Users//s1769862//OneDrive - University of Edinburgh//SLTF-workshop-August2024//" # change with where the folder lies in your filepath
+cws <- readRDS(file= file.path(root, "Data", "cws.RData"))
+```
+
+## Sampling design
+
+How do we handling the sampling design of this survey? First, we read the [Data
+Documentation](https://doc.ukdataservice.ac.uk/doc/7910/mrdoc/pdf/7910_childrensworldsenglandreport_v2.pdf)
+to learn more about the methodology and any population correcting weighting that we can apply.
+
+Take a minute to search for this information on your own. What clues can you draw out?
+
+----------------------------------------------------------------------------------------------------
+
+Looking at the documentation, some key elements appear to be....
+
+> **1.2 Sampling strategy and outcomes (pg. 4)**
+>
+> "The England sample was designed to achieve a nationally representative sample of children in
+> school..... **The primary sampling unit was schools**. Separate samples were drawn for Years 4 and
+> 6 (primary school education) and Year 8 (secondary school education). Both samples followed the
+> same methodology. **First, a complete list of schools in England was stratified into five groups
+> by the proportion of children receiving free school meals (a very rough indicator of economic
+> prosperity)."**
+
+> "These groups were approximate quintiles (based on numbers of pupils in each stratum). The
+> approximation was because of a lack of precision in the data available on free school meal
+> entitlement. **Within each stratum schools were selected randomly** with probabilities
+> proportional to size (number of pupils), with the aim of achieving a target of at least eight
+> schools per stratum. Within each selected school, one class group (not grouped on pupil ability)
+> was randomly selected."
+
+----------------------------------------------------------------------------------------------------
+
+Reading this paragraph, we can see that this dataset has...
+
+1.  England divided into **five stratum**
+2.  Schools are the **primary sampling unit** *within* each stratum
+3.  **Individual weights** to readjust for sample representativeness
+
+From this information, we can create what is called a "survey design object". This is where the
+survey design information is encoded into our R working environment and can be called into other
+statistical functions.
+
+::: callout-note
+We can also look at the *Survey* package documentation for more details and help using `?? survey`
+or `help(svydesign)` into the console
+:::
+
+::: panel-tabset
+## ids
+
+The "ids" indicates the primary sampling unit (PSU). This can be thought of as the smallest unit
+which individuals are sampled from.
+
+## probs
+
+Formula for cluster sampling probabilities.
+
+## strata
+
+How the population was originally divided.
+
+## fpc
+
+Finite population correction.
+
+## weight
+
+The individual probability of selection.
+
+## data
+
+The name of the data frame in R working memory.
+:::
+
+In our dataset the column names for these are:
+
+-   ids: *SchoolRef*
+-   strata: *Strata*
+-   weights: *Weight*
+-   data: *cws* [^1].
+
+[^1]: This is the name of our data.frame in our R environment. It is important that it contains the
+    entire dataset from which the weights were calculated, not a subset where cases may be missing.
+
+We do not have a finite population correction or cluster sampling probability information, so we
+leave these fields blank.
+
+::: callout-tip
+We also include "check.strata = TRUE" as a sense check to ensure that our primary sampling units
+(the schools) are all nested within our strata. This should return nothing if all is well.
+:::
+
+```{r set survey design object}
+design1 <- survey::svydesign(ids = ~SchoolRef, strata =~Strata, weights = ~Weight, data =cws, check.strata=T)
+```
+
+We now have a survey design object which stores both our original dataset and the encoded
+information about its sampling and weighting.
+
+## Descriptive statistics
+
+Now, we can start to use the survey design object to display statistics that are adjusted for the
+sampling design and weighting.
+
+```{r survey weighted mean}
+survey::svymean(~LifeGoingWell, design1, na.rm=TRUE)
+```
+
+Let's compare these to the unweighted version, using "base" r.
+
+How does accounting for the sampling design and population weighting change our estimates?
+
+```{r descriptive stats}
+# estimate un-weighted mean and sd 
+base::mean(cws$LifeGoingWell, na.rm=T) # mean
+
+## compare with survey weighted estimates
+(survey::svymean(~LifeGoingWell, design1, na.rm=T)) - (mean(cws$LifeGoingWell, na.rm=T)) # can see a modest correction in the estimate
+```
+
+Comparing the two estimates, we can see that the estimate for "life going well" is slightly lower
+for the population estimates compared to the face-value calculation.
+
+**Variance and standard error**
+
+We can also see that the standard error around the mean is larger for the survey weighted result.
+Therefore, our error estimates would be underestimated if we assumed a simple random sample and
+ignored the sampling design.
+
+```{r standard error}
+sd((cws$LifeGoingWell), na.rm=TRUE)/sqrt(length(!is.na(cws$LifeGoingWell))) # standard error
+```
+
+```{r variance}
+survey::svyvar(~LifeGoingWell, design1, na = TRUE) # survey weighted estimate
+```
+
+**Deciles**
+
+Unfortunately, the decile results do not display well in the .quarto website output. However, I
+recommend that you run these lines on your own machine to see the raw output
+
+```{r quantiles, eval=F}
+survey::svyquantile(~LifeGoingWell, design1, na = TRUE, c(.25,.5,.75),ci=TRUE)
+```
+
+```{r quintiles, eval=F}
+survey::svyquantile(~LifeGoingWell, design1, na = TRUE, c(.20,.40,.60,.80),ci=TRUE)
+```
+
+## Tables
+
+We can also create adjusted tables with the survey package.
+
+```{r survey table}
+survey::svytable(~LifeGoingWell, design1)
+```
+
+We can see how these estimates differ from the unweighted estimates provided in from the base table
+estimates.
+
+```{r base table}
+base::table(cws$LifeGoingWell)
+```
+
+Tables are helpful for seeing the weighting option in our survey design object at work. However,
+they are not very pretty! This becomes more of a problem for larger or more complex tables, e.g.
+cross tabulations.
+
+We also often want to present multiple types of descriptive statistics, e.g. the adjusted variance
+or other attributes of a distribution, within the same table.
+
+For this, we need a better table package.
+
+### Tables with *gtsummary*
+
+We can improve descriptive statistics summaries by utilising table packages.
+
+The [GT framework](https://gt.rstudio.com/) has a good set of table output options for descriptive
+statistics, bivariate and regression results.
+
+The the [gtsummary](https://www.danieldsjoberg.com/gtsummary/index.html) package is a wrapper for
+survey that was inspired by GT but makes some handy decisions and incorporates the survey design
+into the descriptive statistics reporting.
+
+```{r gtsummary table 1, warning=F}
+gtsummary::tbl_svysummary(design1,
+                          include = c("FrequencyHelpHousework", "HeardOfUNCRC"),
+                          missing_text = "NA")
+```
+
+We can also make tables for continuous variables
+
+```{r table 2, warning=F}
+gtsummary::tbl_svysummary(design1,
+                          include = c("FeelPositiveFuture", "FeelingHappy", "PeopleFriendly", "LifeJustRight"),
+                          statistic = list(all_continuous() ~ "{mean} ({sd})"),
+                          missing = "no")
+```
+
+### Summary table example 2
+
+Here is another example comparing the weighted and unweighted summary tables for changes in
+household spending from the 12-year-olds' perspectives.
+
+First, a table using base R.
+
+```{r frequencies table in base R}
+base::table(cws$FamilyMoneyChange, exclude=F) 
+```
+
+```{r unweighted summary table, warning=F}
+gtsummary::tbl_summary(cws, include = c("FamilyMoneyChange"), digits = list(all_categorical() ~ c(0, 1)))
+```
+
+If we wish to have the categorical responses listed, rather than factor numeric values, we need to
+change the dataset itself.
+
+```{r summary table with recoded variable, warning=F}
+cws <- cws %>%
+  mutate(FamilyMoneyChange = as.factor(case_when(
+    FamilyMoneyChange == 1 ~ "We have more money than a year ago",
+    FamilyMoneyChange == 2 ~ "We have about the same as a year ago",
+    FamilyMoneyChange == 3 ~ "We have less money than a year ago")))
+
+
+gtsummary::tbl_summary(cws, include = c("FamilyMoneyChange"), digits = list(all_categorical() ~ c(0, 1))) %>%
+  modify_caption("Unweighted frequences for 12-year-olds perceptions' of family finances") %>% modify_footnote(update = everything() ~ "Data Source: 2013/14 Childrens World Survey, England")
+```
+
+If we have changed anything in the *original* dataset, such as recoding a variable (even to just
+make it more clearly labelled!) this will not automatically updated in the **survey design object**.
+If we wish to update this, we need to recreate it with the updated dataset.
+
+::: callout-tip
+## Tip
+
+It is often best practice to complete all data manipulation (e.g. recodes) *before* setting the
+survey design object.
+:::
+
+```{r set survey design object2, warning=F}
+design1 <- survey::svydesign(ids = ~SchoolRef, strata =~Strata, weights = ~Weight, data =cws, check.strata=T)
+```
+
+Now, if we run the same code as the previous chunk, it will updated to have the character names for
+our categorical variable encoded in the table.
+
+```{r weighted table 2, warning=F}
+gtsummary::tbl_svysummary(design1, include = c("FamilyMoneyChange"), digits = list(all_categorical() ~ c(0, 1))) %>%
+  modify_caption("Weighted frequences for 12-year-olds perceptions' of family finances") %>%
+  modify_footnote(all_stat_cols() ~ "Data Source: 2013/14 Children's World Survey, England; Survey weighting applied")
+```
+
+::: callout-note
+## NA column
+
+Notice that the "number" of missing values has changed between the unweighted, `base R` table and
+the `gtsummary` table. This is because the distribution of item level non response are associated
+with different weightings. Larger NA estimates in the weighted tables indicate that observations
+which did not offer a valid response to the question have higher weighting, on average, resulting in
+enlarged influence of this category in the nationally representative statistics
+:::
+
+## Task 3
+
+Produce a weighted frequency table of a variable of interest.
+
+Now, try it yourself! Create survey weighted summary statistics for a different variables in the
+dataset.
+
+::: callout-tip
+## Hint
+
+Look up the data documentation with `help(tbl_svysymmary)`
+
+-   What settings can you play around with?
+-   How can you use this tool to explore your dataset?
+:::
+
+```{r task 3}
+
+## enter your own code here
+
+
+
+## hint: copy segments from previous code chunks
+
+```
+
+A possible solution can be viewed below:
+
+```{r task 1 solution, warning=F}
+gtsummary::tbl_svysummary(design1, include = c("FamilyMoneyChange"), digits = list(all_categorical() ~ c(0, 1))) %>%
+  modify_caption("Weighted frequences for 12-year-olds perceptions' of family finances") %>%
+  modify_footnote(all_stat_cols() ~ "Data Source: 2013/14 Children's World Survey, England; Survey weighting applied")
+```
+
+### Cross tabulations
+
+We can also calculate cross tabulations which take into account our survey design corrections and
+weighting by utilising the "by" option in *tbl_svysummary*
+
+```{r cross tabulation, warning=F, message=F}
+gtsummary::tbl_svysummary(design1,
+                          include = c("FeelPositiveFuture", "FeelingHappy", "PeopleFriendly", "LifeJustRight", "FamilyMoneyChange"),
+                          by = FamilyMoneyChange,
+                          statistic = list(all_continuous() ~ "{mean} ({sd})"),
+                          missing = "no")
+```
+
+If we use two categorical variables instead of one categorical and one "continuous" (an ordinal
+Likert scale, in this case), the cross table will also compute a $x^2$ statistic when we do the
+`add_p()` option.
+
+```{r chi squared, warning=F, message=F}
+gtsummary::tbl_svysummary(design1, include = c("FrequencyWatchTV", "FrequencySportsExercise"), by = FrequencyWatchTV) %>%
+  modify_caption("Cross tabulation of time use by 12 year olds in England") %>%
+  add_p()%>%
+  modify_footnote(all_stat_cols() ~ "Data Source: 2013/14 Children's World Survey, England; Survey weighting applied") %>%
+  modify_header(label ~ "FrequencyWatchTV")
+```
+
+We can produce a variety of bivariate test results within our `gtsummary` tables, including t-tests.
+
+A full list can be found [here](https://www.danieldsjoberg.com/gtsummary/reference/tests.html)
+
+```{r t test, warning=F, message=F}
+gtsummary::tbl_svysummary(design1,
+                          include = c("Gender", "SatisfiedAppearance"),
+                          by = Gender) %>%
+  modify_caption("Cross tabulation of satisfaction with personal appearance from 12 year olds in England, by child's gender") %>%
+  add_p(test = all_continuous() ~ "svy.t.test") %>%
+  modify_footnote(all_stat_cols() ~ "Data Source: 2013/14 Children's World Survey, England; Survey weighting applied")
+```
+
+## Task 4
+
+Produce a weighted cross tabulation of two variables of interest and include an appropriate
+inferential test for the type of variable.
+
+```{r task 4}
+
+## your code goes here
+
+```
+
+::: callout-tip
+## Summary tips
+
+1.  Read the dataset documentation clearly to identify all elements of the sampling design provided.
+    Ensure there are no missing values for any columns with design information.
+
+2.  If we make any changes to our data set we need to update the survey design object.
+
+3.  The `gtsummary` package is great, but the syntax is confusing at first! Get used to spending
+    time reading its helpful data documentation.
+:::
+
+## Sub-setting
+
+Previously we discussed that it is important to not alter the number of cases (in this case,
+individuals in the dataset) from the full number utilised by the data managers to calculate the
+survey weights.
+
+> What happens when we change our dataset or work with a sub-sample?
+
+We may wish to restrict our data frame due to..
+
+| Set of columns              | Sub-sample                             |
+|-----------------------------|----------------------------------------|
+| Different number of columns | Different number of units              |
+| Need to specify new dataset | Need to specify the reduction in units |
+| A matter of code change     | A matter of mathematical change        |
+|                             |                                        |
+
+We already demonstrated the latter in a previous example. Now, we explore how to conduct sub-sample
+analyses.
+
+#### Sub-sample analysis: by gender
+
+We create a new design object which is a subset of our original object by a condition of our choice
+
+```{r create subsample}
+design.subset <- subset(design1, Gender == "Boy")
+```
+
+We can compare the number of primary sampling units (in this case schools!) between our original
+design and the subset
+
+```{r new design summary}
+summary(design.subset)
+```
+
+Notice that in the `design.PSU` Stratum 2 has 7 PSUs, but in the `actual.PSU` has 6 PSUs.
+
+This is because one primary sampling unit was lost in the sub-setting, with insufficient
+observations remaining in the result.
+
+If there were any "lonely" primary sampling units (one's that only have one case left after
+sub-setting) we can adjust the "pre-sets" to allow for adjustment (get more into this later!).
+
+```{r survey design adjustments}
+options(survey.lonely.psu = "adjust")
+options(survey.adjust.domain.lonely = TRUE)
+```
+
+```{r subset table, warning=F, message=F}
+gtsummary::tbl_svysummary(design.subset, include = c("FrequencyWatchTV", "FrequencySportsExercise"), by = FrequencyWatchTV) %>%
+  modify_caption("Cross tabulation of time use by 12 year boys in England") %>% add_p()%>%
+  modify_footnote(all_stat_cols() ~ "Data Source: 2013/14 Children's World Survey, England; Survey weighting applied") %>%
+  modify_header(label ~ "FrequencyWatchTV")
+```
+
+## Task 5
+
+Now, try to subset your dataset by your own conditions.
+
+-   Create a new sub-setted survey design object
+-   Create a `gtsummary` table using your sub-setted data
+-   Ensure to properly label your table to reflect the restricted analysis
+-   Spend time perfecting your table, if you wish. What labels can you add? Descriptive statistics?
+
+```{r task 5}
+
+## write your own code!
+
+```
+
+::: {.callout-note appearance="minimal" icon="false"}
+**Next**: Go to Part 1.3: Survey adjusted plots
+:::

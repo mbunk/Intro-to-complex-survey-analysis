@@ -1,0 +1,108 @@
+---
+title: "Set up"
+about:
+  template: solana
+---
+
+This is a brief introduction to setting up your workflow, downloading the datasets and associated packages.
+
+I recommend working through [this introduction](https://rstudio-education.github.io/hopr/basics.html) if you need a refresher on R and R Studio.
+
+------------------------------------------------------------------------
+
+## Working directory
+
+This quarto website is designed to contain all of the code and output to complete the learning tasks.
+
+The project folder containing all .qmd files required for this tutorial should be downloaded and run on your own computer to complete the activity.
+
+To set-up your workflow correctly, please...
+
+1.  Ensure that you have a recent version of 'R' downloaded from [r-project.org](https://www.r-project.org/). This workshop was built with R version 4.4.1 (Race for Your Life).
+2.  Download [R Studio](https://posit.co/downloads/).
+3.  Create a workshop folder in your local field system.
+4.  Download all .qmd files from the workshop [github](https://github.com/mbunk) and save them to your workshop folder.
+5.  Set your working directory to the workshop folder.
+
+```{r set working directory, eval=F}
+getwd() # retrieve your current working directory
+setwd("some path on your computer") # set your working directory using your personal file paths
+```
+
+------------------------------------------------------------------------
+
+## Packages
+
+The required packages and versions utilised in this workshop should be located in the project `renv`. Without version control, they can also be installed and located using the following code.
+
+```{r packages, eval=F}
+## install packages
+#install.packages("survey")
+#install.packages("haven")
+#install.packages("labelled")
+#install.packages("dplyr")
+#install.packages("questionr")
+#install.packages("gtsummary")
+#install.packages("ggthemes")
+#install.packages("RColorBrewer")
+#install.packages("jtools")
+#install.packages("hexbin")
+#install.packages("quantreg")
+
+## load packages into your global environment
+library(survey) # handling survey data with complex sampling design
+library(haven) # for reading in non-native data formats (e.g. Stata's .dta files)
+library(labelled) # working with labelled data
+library(dplyr) # data manipulation
+library(ggplot2) # data visualisation
+library(questionr) # data visualisation with survey design objects
+library(gtsummary) # nice publication ready summary tables
+library(ggthemes) # change theme of ggplot objects
+library(RColorBrewer) # for color schemes
+library(jtools) # visualising regression results
+library(hexbin) # assist with plotting graphics
+library(quantreg) # supports boxplot functions for ggsurvey
+```
+
+------------------------------------------------------------------------
+
+## Data
+
+This workshop utilises data from two repositories: the **UK Data Service** ([UKDS](https://ukdataservice.ac.uk/find-data/access-conditions/open-access/)) and the **European Social Survey** ([ESS](https://www.europeansocialsurvey.org/)). Both datasets are **open access** but require that you make an account with the associated repositories.
+
+We will load two datasets that feature different sampling designs and information in the data documentation to practice loading, reading about the methodology, and encoding this information in the survey design object.
+
+------------------------------------------------------------------------
+
+### Dataset 1: The Children's Worlds Survey
+
+#### Step 1: Register with the UKDS
+
+1.  Navigate to the [UKDS login channel](https://beta.ukdataservice.ac.uk/myaccount/login).
+2.  If you are a member of a UK research organisation, login through your institution. If not, you will need to [request a username](https://beta.ukdataservice.ac.uk/myaccount/credentials) and then sign-in [here](https://idp.data-archive.ac.uk/idp/profile/SAML2/Redirect/SSO?execution=e1s1).
+
+#### Step 2: Download the dataset
+
+1.  Go to the [data browser](https://ukdataservice.ac.uk/find-data/browse/) and search for the study identifier "SN 7910" for the [Children's Worlds Survey: England, 2013-2014](https://beta.ukdataservice.ac.uk/datacatalogue/studies/study?id=7910)
+2.  Ensure the doi matches: `10.5255/UKDA-SN-7910-1`
+3.  Press "Access data" and download the **Stata** .dta format.
+4.  Unzip the folder and place in your workshop folder.
+
+### Dataset 2: The European Social Survey
+
+#### Step 1: Register with the ESS
+
+1.  Go to the [ESS Data Portal](https://ess.sikt.no/en/?tab=overview)
+2.  Press "login" and "make an account"
+3.  Once you have made an account, login.
+
+#### Step 2: Download the dataset
+
+1.  Locate the [ESS round 9 - 2018. Timing of life, Justice and fairness](https://ess.sikt.no/en/datafile/b2b0bf39-176b-4eca-8d26-3c05ea83d2cb/271?tab=0)
+2.  Ensure the doi matches `10.21338/ess9e03_2`
+3.  Press "Download" and select the .csv format.
+4.  Unzip the folder and place in your workshop folder.
+
+::: {.callout-note appearance="minimal" icon="false"}
+**Next**: Go to Part 1.1: Data import and wrangling
+:::

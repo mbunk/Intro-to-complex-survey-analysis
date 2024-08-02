@@ -1,0 +1,27 @@
+---
+title: "About"
+about:
+  template: solana
+  links:
+    - icon: twitter
+      text: Twitter
+      href: https://x.com/maddibunker/
+    - icon: linkedin
+      text: LinkedIn
+      href: https://www.linkedin.com/in/madisonbunker/
+    - icon: github
+      text: Github
+      href: https://github.com/mbunk/
+---
+
+My name is <a href="https://orcid.org/0009-0008-9636-2706">Maddi <img src="https://info.orcid.org/wp-content/uploads/2019/11/orcid_16x16.png" alt="ORCID logo" width="16" height="16"/></a> and I am a PhD Student in Social Policy at the [University of Edinburgh](https://www.sps.ed.ac.uk/staff/maddi-bunker).
+
+My research utilises the [Growing Up in Scotland](https://growingupinscotland.org.uk/) (GUS) birth cohort study. Like many popular social surveys, GUS has a complex sampling design. In the beginning of my PhD, I spent a lot of time learning how to approach statistical analyses with the unique requirements imposed by this type of data.
+
+I made a lot of mistakes along the way, and wished for a guide on approaching survey research in R that was written to speak to someone like me: a social scientist armed with only a passable grasp of Stata and my study's data documentation.
+
+I hope that these workshop materials will be use of to someone else!
+
+------------------------------------------------------------------------
+
+The website is made with Quarto. To learn more about Quarto websites visit <https://quarto.org/docs/websites>.

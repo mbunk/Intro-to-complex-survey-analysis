@@ -1,0 +1,420 @@
+---
+title: "2.1: Regressions"
+format:
+  html:
+    code-fold: true
+    code-tools: true
+editor: 
+  markdown: 
+    wrap: 100
+---
+
+This sections covers: regression models and other advanced applications using **European Social
+Survey data**.
+
+It also provides space to practice reading in a new dataset and survey design object.
+
+----------------------------------------------------------------------------------------------------
+
+Welcome to the afternoon session!
+
+::: callout-caution
+## Please download the ESS data before preceding
+
+Go back to the "Set up" page for further instructions.
+:::
+
+----------------------------------------------------------------------------------------------------
+
+```{r library load 3, echo=F, message=F, warning=F, include=F}
+library(survey) # handling survey data with complex sampling design
+library(dplyr) # data manipulation
+library(ggplot2) # data visualisation
+library(questionr) # data visualisation with survey design objects
+library(gtsummary) # nice publication ready summary tables
+```
+
+## Data import
+
+We will be importing the second dataset, the *European Social Survey*.
+
+The data was downloaded as a .csv file, so we use the `read_csv` function from base R.
+
+Re-specify the "root" function if this value is no longer in your working directory. Remember to
+adjust this code to match the pathname to the folder where your workshop data is saved.
+
+```{r set root 2}
+root <- "C://Users//s1769862//OneDrive - University of Edinburgh//SLTF-workshop-August2024//" # change with where the folder lies in your filepath
+```
+
+If you downloaded the .csv file as a single folder from ESS without altering any file names or
+structure the data can be imported with this relative path and the root directory specified above.
+
+```{r import data set 2}
+ess9 <- read.csv(file.path(root, "ESS9e03_2", "ESS9e03_2.csv"))
+```
+
+Notice that variables from the .csv file imported as more typical classes, and do not have haven
+labelling like the .dta import.
+
+```{r check class of column}
+class(ess9$cntry) # character for letter input
+class(ess9$nwspol) # integer for numeric input
+class(ess9$ppltrst) # integer for numeric input
+```
+
+## Data cleaning
+
+The ESS data is very large and complex, so we will only clean a few variables to use in this
+example. The variety of the data also means we cannot apply a single logic for recoding all missing
+values, as was done with the Children's Worlds Survey.
+
+::: callout-caution
+Remember to complete all cleaning and wrangling before setting the survey design object. However, do
+not restrict cases!
+:::
+
+We will clean a few variables of interest.
+
+1.  `ppltrst` ("Most people can be trusted or you can't be too careful")
+2.  `trstprl` ("Trust in country's parliament")
+3.  `nwspol` (Minutes spent consuming news)
+4.  `vote` ("Voted in last election")
+5.  `gndr` ("Respondent gender")
+6.  `agea` ("Respondent age)
+
+```{r data set 2 missing values}
+# Missing transformation for ordinal variables
+ess9$trstprl[ess9$trstprl>10] <- NA
+
+# cutoffs for continuous variables
+ess9$nwspol[ess9$nwspol>7000] <- NA
+ess9$agea[ess9$agea>6000] <- NA
+```
+
+```{r data set 2 recode values}
+ess9 <- ess9 %>%
+  dplyr::mutate(vote = as.factor(
+                  case_when(vote == 1 ~ "Yes",
+                            vote == 2 ~ "No",
+                            .default = NA)),
+                gender = as.factor(
+                  case_when(gndr == 1 ~ "Male",
+                            gndr == 2 ~ "Female",
+                            .default = NA)),
+                age = as.factor(
+                  case_when(agea >17 & agea <26 ~ "18 to 25",
+                            agea >25 & agea <36 ~ "25 to 35",
+                            agea >35 & agea <50 ~ "36 to 49",
+                            agea >49 & agea <65 ~ "50 to 64",
+                            agea >64 & agea <115 ~ "65+",
+                            agea <18 | agea >115 ~ NA)))
+```
+
+## Sampling design object
+
+The ESS makes our job easy and provides [detailed
+guidance](https://stessrelpubprodwe.blob.core.windows.net/data/methodology/ESS_weighting_data_1_2.pdf)
+on setting the survey design object.
+
+According to the guide our survey design variables include:
+
+::: panel-tabset
+## ids
+
+*psu*
+
+The primary sampling unit, the smallest grouping where individual respondents are sampled from.
+
+## strata
+
+*stratum*
+
+The higher level stratification of the sampling design.
+
+## weights
+
+*anweight*
+
+The analysis weight, which is suitable for all analyses.
+
+*pspweight*
+
+The post-stratification weight, adjusting for non-response errors.
+
+*design*
+
+The design weight, adjusting for the probability of selection into the sample.
+
+## data
+
+*ess9*
+
+The name of our data from in R working memory.
+:::
+
+The documentation provides further detail about the weights because there are multiple that are
+available.
+
+*Analysis weight*
+
+> "Anweight corrects for differential selection probabilities within each country as specified by
+> sample design, for nonresponse, for noncoverage, and for sampling error related to the four
+> post-stratification variables, and takes into account differences in population size across
+> countries. It is constructed by first deriving the design weight, then applying a
+> post-stratification adjustment, and then a population size adjustment. "
+
+*Post-stratification weight*
+
+> "While the design weights account for differences in inclusion probabilities, sampling errors
+> (related to attempting to measure only a fraction of the population) and possible non-response
+> errors (which may lead to a systematic over- or under-representation of people with certain
+> characteristics) are still present. Post-stratification weights are a more sophisticated weighting
+> strategy that uses auxiliary information to reduce the sampling error and potential non-response
+> bias. They have been constructed using information on age group, gender, education, and region.
+> The post-stratification weights are obtained by adjusting the design weights in such a way that
+> they will replicate the distribution of the cross-classification of age group, gender, and
+> education in the population and the marginal distribution for region in the population."
+
+*Design weight*
+
+> "Several countries use complex sampling designs where some groups or regions of the population
+> have higher probabilities of selection. The main purpose of the design weights is to correct for
+> the fact that in some countries respondents have different probabilities to be part of the sample
+> due to the sampling design used. Applying the weights allows for the construction of design
+> unbiased estimators. The design weights are computed as the inverse of the inclusion
+> probabilities, i.e. the probability of each person to be included into the sample. The inverse
+> inclusion probabilities are then scaled such that their sum equals the net sample size and the
+> mean equals one."
+
+The analysis weight `anweight` is a combination of the post-stratification weight `pspweight` and
+the population weight `pweight`. [ESS weighting
+guidelines](https://www.europeansocialsurvey.org/methodology/ess-methodology/data-processing-and-archiving/weighting)
+recommend using `anweight` for general analysis, so we will employ the recommended specification in
+the example today.
+
+**Create the survey design object.**
+
+```{r sampling design object 2}
+design2 <- survey::svydesign(ids = ~psu, strata = ~stratum, weights = ~anweight, data = ess9)
+```
+
+## Regression
+
+Now we have the tools to dive into regression!
+
+The survey package builds on the "General Linear Model" `glm` model framework, which underpins many
+popular regression functions in R. If you know the syntax for the `glm` you can apply pretty much
+any decisions to the `svyglm` function.
+
+#### The glm function has several components:
+
+::: panel-tabset
+## Function
+
+Specify the relationship between our independent and dependent variables as a formula.
+
+For example, outcome $y$ with predictive variables $x_1$, $x_2$, or ($y = x_{1} + x_{2} + x_{3}$)
+
+would be expressed in the function as `y ~ x1 + x2 + x3`.
+
+## Family
+
+The family of distributions to apply to your formula.
+
+For example, `gaussian`, `quasi-binomial`, `binomial`, or `poisson.`
+
+## Link
+
+The linking function for the algorithm that performs the regression calculation.
+
+For example, `identity`, `logit`, or `inverse`. It does not need to be specified if defaults for the
+family are correct.
+
+## Data
+
+The name of your data frame in R working memory.
+:::
+
+From the user's perspective, the primary difference between calling the `svyglm()` and regular
+`glm()` function is specifying the survey design object `design=` in place of the data frame
+`data=`. In our case, this means specifying `design2` instead of `ess9`.
+
+## Linear regression
+
+Let's try a simple ordinary least squares (OLS) linear regression.
+
+Is the amount of time one spends consuming news associated with how old they are?
+
+If news consumption is $y$ and age is $x$ then our formula is simply `nwspol ~ gender` .
+
+```{r linear regression}
+options(survey.lonely.psu="adjust") # adjust for lonely psu
+
+summary(survey::svyglm(nwspol ~ age, family=gaussian, design=design2))
+```
+
+It appears that age has a significant association with new consumption. The time spent consuming
+news media is elevated for the highest age groups compared to the youngest.
+
+We can also include `tbl_regression()` to make our model output more readable.
+
+```{r table for linear regression}
+survey::svyglm(nwspol ~ age, family=gaussian, design=design2) %>%
+  gtsummary::tbl_regression() %>%
+  modify_caption("Predicting time spent watching news") %>%
+  bold_p(t=0.05)
+```
+
+### Adjusting for lonely primary sampling unit
+
+If we run this code without the `adjust for longely PSU` we receive the following error message:
+`Error in onestrat(`attr\<-`(x[index, , drop = FALSE], "recentering", recentering),  : Stratum (1680) has only one PSU at stage 1`
+
+This is quite a common error message. It means that there are not sufficient primary sampling units
+within a stratum, so standard calculations are failing.
+
+A commonly suggested solution is to allow the survey package to adjust for "lonely" PSUs. You can
+research all [adjustment
+options](https://r-survey.r-forge.r-project.org/survey/exmample-lonely.html) and decide which is
+best for your use case.
+
+::: panel-tabset
+## \`options(survey.lonely.psu="fail")\`
+
+The default, which causes an error message and refuses to run the calculation.
+
+## \`options(survey.lonely.psu="remove")\`
+
+Removes the single PSU so it has no contribution to variance calculations.
+
+## \`options(survey.lonely.psu="certainty")\`
+
+Also specifies that the single PS will have to contribution to variance
+
+## \`options(survey.lonely.psu="adjust")\`
+
+Centres the single PSU at the sample grand mean rather than the stratum grand mean.
+:::
+
+We will set `options(survey.lonely.psu="adjust")` which is suggested as good choice when the problem
+is believe to be caused by random missingness, rather than an issue with the sampling design.
+
+## Binary logistic regression
+
+The survey package can handle multiple types of linear regressions, including binary logistic
+regression.
+
+Let us investigate the probability of individuals having voted in their last national election,
+given their trust in political institutions.
+
+::: callout-note
+Including `exponentiate = T` provides the coefficient estimates in odds ratios.
+:::
+
+```{r logit regression}
+options(survey.lonely.psu="adjust") # adjust for lonely psu
+
+survey::svyglm(vote ~ trstprl, family= quasibinomial, design=design2) %>% gtsummary::tbl_regression(exponentiate=T)
+```
+
+Remember that 0 refers to a state of maximum distrust and 10 signifies the highest state of trust.
+Therefore, these model results indicate that there is a positive relationship between increased
+trust in parliament and whether a respondent voted in their last national election.
+
+Just as with descriptive tables, we can adjust the regression summary table to include more details.
+
+```{r better logit regression table}
+survey::svyglm(vote ~ trstprl, family= quasibinomial, design=design2) %>%
+  gtsummary::tbl_regression(exponentiate = T,
+                            label = c(trstprl~"Trust in parliament")) %>%
+  bold_p(t=0.05) %>%
+  modify_caption("Predicting the odds of having voted in the last national election") %>%
+  as_gt() %>%
+  gt::tab_source_note(gt::md("Data source: European Social Survey, 2018"))
+```
+
+We can alter the formula for our model we to add control variables to the binary logit.
+
+```{r multiple binary logit}
+survey::svyglm(vote ~ trstprl + gender + age, family=quasibinomial, design = design2) %>%
+  gtsummary::tbl_regression(exponentiate = T,
+                            label = c(trstprl~"Trust in parliament")) %>%
+  bold_p(t=0.05) %>%
+  modify_caption("Predicting the odds of having voted in the last national election with control variables") %>%
+  as_gt() %>%
+  gt::tab_source_note(gt::md("Data source: European Social Survey, 2018"))
+```
+
+Our result remains significant, even when controlling for age and gender. We can also see that as
+age increase so does the odds of having voted in the last election.
+
+## Investigating the influence of the survey adjustments
+
+What would happen if we did not adjust for survey weighting?
+
+We can run the same model and below with the base glm function and compare the results.
+
+```{r unweighted glm}
+glm(vote ~ trstprl + gender + age, family=quasibinomial, dat= ess9) %>%
+  gtsummary::tbl_regression(exponentiate = T,
+                            label = c(trstprl~"Trust in parliament")) %>%
+  bold_p(t=0.05) %>%
+  modify_caption("Predicting the odds of having voted in the last national election with control variables") %>%
+  as_gt() %>%
+  gt::tab_source_note(gt::md("Sampling adjustment *not* applied. Data source: European Social Survey, 2018"))
+
+```
+
+Strikingly, the effect of gender on voting behaviour becomes significant when the sampling design is
+not accounted for. This indicates that we would erroneously report a relationship that is not robust
+if tools for complex samples were not utilised.
+
+## Task 8
+
+Construct your own regression analysis and display the results in a gtsummary table!
+
+::: callout-tip
+Remember to convert any missing values to NA and ensure that your columns are the correct class for
+your analysis. If you make any changes to the original data frame in your data cleaning, remember to
+specify a new survey design object with the updated data frame.
+:::
+
+```{r task 8}
+
+## Write your own code!
+
+## hint: copy and past code from previous chunks
+
+```
+
+## Interaction effects
+
+We can also specify interaction effects by modifying the regression formula. For example, I may
+wonder if trust in politics has a different influence on past voting behaviour by gender.
+
+```{r logit with interaction effects}
+survey::svyglm(vote ~ trstprl*age + gender, family=quasibinomial, design = design2) %>%
+  gtsummary::tbl_regression(exponentiate = T,
+                            label = c(trstprl~"Trust in parliament")) %>%
+  bold_p(t=0.05) %>%
+  modify_caption("Predicting the odds of having voted in the last national election with interaction effects") %>%
+  as_gt() %>%
+  gt::tab_source_note(gt::md("Data source: European Social Survey, 2018"))
+```
+
+Looks like my theory was not supported by the data. Although trust in politicians and age both have
+main effects on voting, there is not evidence of a significant interaction effect.
+
+## Save data
+
+To transport our analysis to the final session we can save it as an RData file to the workshop
+folder.
+
+```{r write ess data file}
+saveRDS(ess9, file = file.path(root, "Data", "ess9.RData"))
+```
+
+::: {.callout-note appearance="minimal" icon="false"}
+**Next**: Go to Part 2.2: Extensions
+:::

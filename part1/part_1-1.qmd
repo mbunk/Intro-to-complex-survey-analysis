@@ -1,0 +1,282 @@
+---
+title: "1.1: Data import and wrangling"
+format:
+  html:
+    code-fold: true
+    code-tools: true
+editor: 
+  markdown: 
+    wrap: 100
+---
+
+This sections covers: importing, transforming and wrangling the **Children's Worlds Survey, England
+data from 2013/14**.
+
+----------------------------------------------------------------------------------------------------
+
+Welcome to the morning session!
+
+::: callout-caution
+## Caution: Please download the CWS data before preceding
+
+Go back to the "Set up" page for further instructions.
+:::
+
+----------------------------------------------------------------------------------------------------
+
+## Packages
+
+If you have not already loaded the previously specified packages please do so.
+
+```{r library load, echo=F, message=F, warning=F, include=F}
+library(survey) # handling survey data with complex sampling design
+library(haven) # for reading in non-native data formats (e.g. Stata's .dta files)
+library(labelled) # working with labelled data
+library(dplyr) # data manipulation
+library(ggplot2) # data visualisation
+library(questionr) # data visualisation with survey design objects
+library(gtsummary) # nice publication ready summary tables
+library(ggthemes) # change theme of ggplot objects
+library(RColorBrewer) # for colour schemes
+```
+
+## Data import
+
+We will import the first dataset, the *Children's Worlds Survey*.
+
+Data with a complex survey design is often stored in data files formatted for SPSS or Stata. In this
+case, we downloaded the Children's Worlds Survey as Stata .dta files. We will be utilising the
+[haven](https://haven.tidyverse.org/) package from the *Tidyverse suite* to read this format into R.
+
+First, we set a "root" which tells R where to look for the data on your computer. Change the root
+value to the location where you saved the data files on your machine.
+
+```{r set root}
+root <- "C://Users//s1769862//OneDrive - University of Edinburgh//SLTF-workshop-August2024//"
+# change with where the folder lies in your filepath
+```
+
+Now, load the 12-year-old questionnaires from the *Children's Worlds Survey* using the syntax
+`haven::read_dta("file")`.
+
+If you downloaded the .dta file as a single folder from UKDS the data can be imported with this
+relative file path and the root directory specified above.
+
+```{r import data 1}
+cws <- haven::read_dta(file.path(root, "7910stata11", "UKDA-7910-stata11", "stata11", "children_worlds_wave2_england_12yo.dta"))
+```
+
+## Data summary
+
+First, let's see what our imported .dta file looks like!
+
+```{r investigate data 1}
+head(cws, n=5)
+```
+
+We can also view the dataset within our RStudio IDE using `View`, which is similar to the Stata
+`Browse` function.
+
+## Task 1
+
+Get familiar with the data!
+
+-   What kinds of variables are there?
+
+-   How are they coded?
+
+```{r task 1}
+
+## write your own code!
+```
+
+::: callout-tip
+Some useful functions include: `summary` , `tail` , and `View`.
+:::
+
+## Variable classification
+
+Looking at the data summary, many variables say `<dbl+lbl>` above them. We can query more
+information by investigating the data class registered for any column in the dataset.
+
+```{r view class}
+class(cws$FeelingHappy)
+```
+
+We can see that the column is called a "Haven-labelled" class. This is a special type of data
+storage the .dta files are imported. Haven-labelled variables retain the metadata of the column and
+value labels as we would utilise them in Stata.
+
+::: callout-note
+The logical and assumptions for how variable information is stored and inputed into statistical
+models differ between typical workflows in R and Stata.
+
+I, personally, do not like working with .dta files in R. If I plan to complete all of the project
+analyses in R I would download the data as .tab or .csv and utilise data documentation for all of
+the metadata information stored in .dta files.
+
+However, many complex survey analysts may have a background in Stata or already have their data
+stored in .dta files. Therefore, it is useful to know how to to wrangle these files.
+:::
+
+Many data analysis functions in R do not play with this data storage. We need more "basic" storage
+types, e.g. **numeric, integer, factor or character**.
+
+We can remove the haven labelling using the [labelled](https://larmarange.github.io/labelled/)
+package.
+
+```{r zap labels}
+labelled::val_labels(cws) <- NULL # remove the labels
+
+class(cws$FeelingHappy) # Test if a column was correctly converted from a double labelled type to standard numeric
+```
+
+We can see that the variable "FeelingHappy" is now successfully converted to a numeric variable.
+
+## Missing data
+
+Next, we need to recode missing values or invalid responses to `NA`. The `NA` is equivalent to the
+`.` for Stata users.
+
+Social survey datasets are often encoded with extreme numeric values to indicate missing data, e.g.
+-999. Consulting the Data Documentation, values 99, 95, 90 and 91 represent missing data across all
+columns in this dataset.
+
+```{r wrangle missing values}
+## set all missing values to NA for the data frame
+cws[cws==99] <- NA
+cws[cws==95] <- NA
+cws[cws==90] <- NA
+cws[cws==91] <- NA
+```
+
+## Factor data
+
+We will also convert our main categorical variables from numeric numbers to factors. This means that
+our information should be stored as categorical information.
+
+As with missing values, we may need to consult the datasets codebook or other documentation to
+correctly associate the numeric values with the ordinal or nominal categories which they represent.
+
+::: callout-tip
+## Tip for Stata Users
+
+I often have the .dta file open in a Stata session just to read the value labels as I recode key
+variables in R if I find the dataset codebooks cumbersome.
+
+Do whatever works for you!
+:::
+
+The following code writes functions which recode variables to factors based upon the labels
+associated with their numeric values.
+
+```{r recode variables}
+cws <- cws %>%
+  dplyr::mutate(Gender = as.factor(case_when(Gender == 1 ~ "Boy",
+                                             Gender == 2 ~ "Girl")),
+                NHomes = as.factor(case_when(NHomes == 1 ~ "One home",
+                                             NHomes == 2 ~ "Sometimes sleep other places",
+                                             NHomes == 3 ~ "2 homes")),
+                HomeType = as.factor(case_when(HomeType == 1 ~ "Family",
+                                               HomeType == 2 ~ "Foster",
+                                               HomeType == 3 ~ "Children's home",
+                                               HomeType == 4 ~ "Other type")))
+
+## define recoding functions for common value patterns to the dataset
+recode.binary <- function(x) {
+  as.factor(case_when(x == 0 ~ "No",
+                      x == 1 ~ "Yes"))} # define a function that recodes multiple columns with same value categories
+
+recode.semi.binary <- function(x) {
+  as.factor(case_when(x == 0 ~ "No",
+                      x == 1 ~ "Not sure",
+                      x == 2 ~ "Yes"))} # define a function for questions with "No", "Not sure", and "Yes" answers
+
+recode.frequency <- function(x) {
+  as.factor(case_when(x == 0 ~ "Not at all",
+                      x == 1 ~ "Once or twice",
+                      x == 2 ~ "Most days",
+                      x == 3 ~ "Every day"))
+}
+
+recode.likert <- function(x) {
+  as.factor(case_when(x == 0 ~ "Do not agree",
+                      x == 1 ~ "Agree a little",
+                      x == 2 ~ "Agree somewhat",
+                      x == 3 ~ "Agree a lot",
+                      x == 4 ~ "Totally agree"))
+}
+
+recode.frequency2 <- function(x) {
+  as.factor(case_when(x == 0 ~ "Never",
+                      x == 1 ~ "Once",
+                      x == 2 ~ "2 or 3 times",
+                      x == 3 ~ "More than 3 times"))
+}
+
+recode.frequency3 <- function(x) {
+  as.factor(case_when(x == 0 ~ "Rarely or never",
+                      x == 1 ~ "Less than weekly",
+                      x == 2 ~ "Once or twice a week",
+                      x == 3 ~ "About every day"))
+}
+
+recode.frequency4 <- function(x) {
+  as.factor(case_when(x == 0 ~ "Never",
+                      x == 1 ~ "Hardly ever",
+                      x == 2 ~ "Sometimes",
+                      x == 3 ~ "Often",
+                      x == 4 ~ "Always"))
+}
+
+## apply the recoding functions
+cws <- cws %>%
+  mutate(across(c(HaveTV, HaveCar, HaveMobilePhone, HaveOwnRoom, HaveAccessComputer, HaveAccessInternet, PastYearChangedArea, PastYearMovedHouse, PastYearChangedSchool, PastYearOtherCountry, BornThisCountry, HaveGoodClothes, HaveBooks), recode.binary)) %>%
+  mutate(across(c(HeardOfUNCRC, KnowRights, AdultsRespectChildRights), recode.semi.binary)) %>%
+  mutate(across(c(HomeSafe, HomePlaceToStudy, ParentsListen, FamilyGoodTimeTogether, ParentsTreatFairly, FriendsNice, FriendsEnough, AreaPlacesToPlay, AreaSafeWalk, TeachersListen, LikeSchool, TeachersFair, SchoolSafe), recode.likert)) %>%
+  mutate(across(c(FrequencyFamilyTalk, FrequencyFamilyFun, FrequencyFamilyLearn, FrequencyFriendsTalk, FrequencyFriendsFun, FrequencyFriendsStudy), recode.frequency)) %>%
+  mutate(across(c(FrequencyPeersHit, FrequencyPeersExclude), recode.frequency2)) %>%
+  mutate(across(c(FrequencyClasses, FrequencyOrganisedLeisure, FrequencyReadFun, FrequencyHelpHousework, FrequencyHomework, FrequencyWatchTV, FrequencySportsExercise, FrequencyUseComputer, FrequencyByMyself, FrequencyCareForFamily), recode.frequency3)) %>%
+  mutate(across(c(ParentsHelpProblems, ParentsAskWhereGoing, ParentsKeepTrackSchool, ParentsRemindWashShower, ParentsShowInterestSchool, ParentsSupportUpset, ParentsSupportUpset, ParentsKnowWhereAfterSchool, ParentsEnsureSeeDoctor), recode.frequency4))
+```
+
+## Task 2
+
+Investigate the data again!
+
+-   Do the variable recodes "make sense"?
+
+-   Is there any other variable cleaning required?
+
+```{r task 2}
+
+## write your own code!
+
+```
+
+----------------------------------------------------------------------------------------------------
+
+Just like that, we have a "clean" dataset, fully converted from .dta to a data frame that we can
+work with in R.
+
+----------------------------------------------------------------------------------------------------
+
+## Save data
+
+Save the changed data.frame as an `RData` file.
+
+This step is superfluous if you are working within one data analysis script. However, this workshop
+has been broken up into more digestible chunks. Therefore, we need our data to be transportable
+between the files.
+
+For this reason, I have created a folder called `Data` and placed it in my root directory.
+
+To save our dataset object to this folder execute the follow chunk:
+
+```{r write data file}
+saveRDS(cws, file = file.path(root, "Data", "cws.RData"))
+```
+
+::: {.callout-note appearance="minimal" icon="false"}
+**Next**: Go to Part 1.2: Survey adjusted descriptive statistics
+:::

@@ -1,0 +1,179 @@
+---
+title: "2.2: Extensions"
+format:
+  html:
+    code-fold: true
+    code-tools: true
+editor: 
+  markdown: 
+    wrap: 100
+---
+
+The is the final session of the workshop and covers a few extensions, including regression
+diagnostics.
+
+## Load packages
+
+Load all of the required packages if they are not already in your R environment.
+
+```{r library load 4, echo=F, message=F, warning=F, include=F}
+library(survey) # handling survey data with complex sampling design
+library(dplyr) # data manipulation
+library(ggplot2) # data visualisation
+library(questionr) # data visualisation with survey design objects
+library(gtsummary) # nice publication ready summary tables
+library(ggthemes) # change theme of ggplot objects
+library(RColorBrewer) # for colour schemes
+library(jtools) # visualising regression results
+```
+
+## Load data
+
+Remember that we "saved" our wrangled dataset to the working directory in the previous section as an
+`.RData`file in our workshop folder.
+
+```{r load ess9 rdata, warning=F}
+root <- "C://Users//s1769862//OneDrive - University of Edinburgh//SLTF-workshop-August2024//" # change with where the folder lies in your filepath
+ess9 <- readRDS(file= file.path(root, "Data", "ess9.RData"))
+```
+
+We also need to re-specify our sampling design object and PSU adjustment settings.
+
+```{r specify the sampling design}
+design2 <- survey::svydesign(ids = ~psu, strata = ~stratum, weights = ~anweight, data = ess9)
+options(survey.lonely.psu="adjust") # adjust for lonely psu
+```
+
+## Model fit
+
+First, we can expand upon the reporting of regression outputs by integrating model fit criteria into
+the summary tables.
+
+This can be accomplished via `glance table` from the `gtsummary` `tbl_regression` function, which
+pulls the fit information directly from the `svyglm` model output.
+
+```{r model fit stats, message=F}
+survey::svyglm(nwspol ~ age, family=gaussian, design=design2) %>%
+  tbl_regression() %>%
+  bold_p(t=0.05) %>%
+  add_glance_table(include=c(everything()))
+```
+
+This also applied to logistic regression results
+
+```{r logit model fit info}
+survey::svyglm(vote ~ trstprl + gender + age, family=quasibinomial, design = design2) %>% tbl_regression(exponentiate=T, label = c(trstprl~"Trust in parliament")) %>%
+  bold_p(t=0.05) %>%
+  add_glance_table(include=c(everything()))
+```
+
+### Pseudo r-squared
+
+The automatic summary output does not include a pseudo r-squared estimate, but we can request this
+manually from the `survey` package.
+
+```{r pseudo r squared}
+m1 <- survey::svyglm(vote ~ trstprl + gender + age, family=quasibinomial, design = design2)
+psrsq(m1)
+```
+
+We can add this information back to our the summary object created for the model.
+
+```{r add r squared to model summary, message=F, warning=F}
+m1$r.squared <- psrsq(m1)
+
+m1 %>% tbl_regression(exponential=T,label = c(trstprl~"Trust in parliament")) %>%
+  bold_p(t=0.05) %>%
+  add_glance_table(include=c(everything()))
+```
+
+::: callout-note
+You can select which estimation methods to use! See the full list on the data documentation
+`methods = c("Nagelkerke", "Cox-Snell")`
+:::
+
+## Task 9
+
+Add model fit information to your own regression model.
+
+-   Customise the output information and styling!
+
+-   For reference, see
+    [tbl_regression](https://www.danieldsjoberg.com/gtsummary/articles/tbl_regression.html)
+
+```{r task 9}
+
+## Write your own code!
+
+```
+
+## Plotting model coefficients
+
+Model coefficients from survey adjusted models can also be plotted.
+
+I like using the [jtools package](https://jtools.jacob-long.com/reference/) for visualising the odds
+rations from binary logistic regression models.
+
+```{r plot coefficients, message=F}
+survey::svyglm(vote ~ trstprl + gender + age, family=quasibinomial, design = design2) %>%
+  jtools::plot_coefs(exp=T,
+                     coefs = c("Trust in parliament" = "trstprl",
+                               "Gender(ref=male)" = "genderMale",
+                               "Age 25-35(ref=18-25)" = "age25 to 35",
+                               "Age 36-49(ref=18-25)" = "age36 to 49",
+                               "Age 50-64(ref=18-25)" = "age50 to 64",
+                               "Age 65+(ref=18-25)" = "age65+"))
+```
+
+## Plotting predicted values
+
+Beyond coefficients, predicted values can be plotted and evaluated.
+
+Let us go back and create a model for predicting news consumption using OLS regression to see effect
+plots for continuous outcomes.
+
+I theorise that trust is parliament is predictive of increased news consumption, and wish to control
+for age and gender.
+
+```{r multivariate ols}
+m2 <- survey::svyglm(nwspol ~ age + gender + trstprl, family=gaussian, design=design2)
+```
+
+We can go back and look at the model summary.
+
+```{r multivariate ols summary, message=F}
+m2 %>%
+  tbl_regression(exponential=T,label = c(trstprl~"Trust in parliament")) %>%
+  add_glance_table(include=c(everything())) %>%
+  bold_p(t=0.05)
+```
+
+It looks like my predicted relationship is not supported by the model.
+
+Nevertheless, we can investigate the model fit and predicted values.
+
+First, we can use an effect plot to look at the predicted relationship between trust in parliament
+and news consumption.
+
+```{r effect plot}
+jtools::effect_plot(m2, pred=trstprl, interval = T)
+```
+
+The error bars are very large, which makes sense because this was not a statistically significant
+relationship in the model.
+
+Calling `plot` on the data object provides a host of residuals plots.
+
+```{r residuals}
+plot(m2)
+```
+
+The qqplot indicates that the fit gets worse for the top quantiles.
+
+The Scale-Location plot does not raise significant alarm bells for homoscedasticity.
+
+## Your turn!
+
+Practice your own survey data analysis and extensions... There are many!
+
+I hope these workshop materials were helpful in some way.

@@ -1,0 +1,219 @@
+---
+title: "1.3: Survey adjusted plots"
+format:
+  html:
+    code-fold: true
+    code-tools: true
+editor: 
+  markdown: 
+    wrap: 100
+---
+
+This section covers data visualisations using survey design-adjusted plots.
+
+----------------------------------------------------------------------------------------------------
+
+```{r library load 2, echo=F, message=F, warning=F, include=F}
+library(survey) # handling survey data with complex sampling design
+library(haven) # for reading in non-native data formats (e.g. Stata's .dta files)
+library(labelled) # working with labelled data
+library(dplyr) # data manipulation
+library(ggplot2) # data visualisation
+library(questionr) # data visualisation with survey design objects
+library(gtsummary) # nice publication ready summary tables
+library(ggthemes) # change theme of ggplot objects
+library(RColorBrewer) # for colour schemes
+library(hexbin) # assist with plotting graphics
+library(quantreg) # supports boxplot functions for ggsurvey
+```
+
+## Load data
+
+Remember that we "saved" our wrangled dataset to the working directory in the previous section as an
+`RData` file in our workshop folder.
+
+```{r load cws rdata}
+root <- "C://Users//s1769862//OneDrive - University of Edinburgh//SLTF-workshop-August2024//" # change with where the folder lies in your filepath
+cws <- readRDS(file= file.path(root, "Data", "cws.RData"))
+```
+
+```{r set survey design object}
+design1 <- survey::svydesign(ids = ~SchoolRef, strata =~Strata, weights = ~Weight, data =cws, check.strata=T)
+```
+
+## Intro to plots
+
+We want to take advantage of R's good graphics but the typical plotting options, e.g. `base R`
+`plot` or `ggplot2`, are not coded to intake a survey design object to make their calculations. This
+means that weighted estimates and standard error visualisations will be incorrect.
+
+Therefore, we need to specify the sampling design in the plotting arguments.
+
+## Using only the survey package
+
+The `survey` package has inbuilt plotting functions that work out-the-box.
+
+::: callout-note
+Include `~1` to specify the lack of a second variable in univariate plots.
+:::
+
+```{r survey histogram}
+survey::svyhist(FeelPositiveFuture~1,design1)
+```
+
+Looking at the range, the distribution of positive feeling is right-skewed.
+
+The syntax is very similar for a boxplot.
+
+We can also perform some basic modification, including adding a main title with `main = "title"` .
+
+```{r survey box plot}
+survey::svyboxplot(FeelPositiveFuture~1,design1,
+                   main = "Feelings of positivity for the future, 12 year olds in England")
+```
+
+### Multivariate plots
+
+To investigate bivariate relationships with a boxplot we can replace the `~1` with a categorical
+variable.
+
+```{r bivariate boxplot}
+survey::svyboxplot(FeelPositiveFuture~HomeType,design1,
+                   main = "Feelings of positivity by living situation, 12 year olds in England")
+```
+
+It appears that there is greater variance in feelings of optimism for those in a type of home other
+than a family or fostering situation.
+
+```{r multivariate interval plot}
+survey::svyplot(FeelPositiveFuture~SatisfiedHealth,
+                design1,
+                xlab = "Satisfaction with health",
+                ylab = "Feelings of positivity",
+                main = "Relationship between health satisfaction and positivity",
+                style="grayhex")
+```
+
+## Task 6
+
+Now, try out your own `svy` plotting options!
+
+Key functions for main plot types include:
+
+-   `svyhist`
+-   `svybox`
+-   `svyplot`
+
+> Advanced: try to create both univariate and multivariate plots!
+
+```{r task 6}
+
+## write your own code!
+
+## tip: copy and past from previous code chunks!
+
+```
+
+## Better plots
+
+The survey plots are great, but they are pretty basic. I also find the syntax non-intuitive.
+
+The [ggsurvey](https://cran.r-project.org/web/packages/ggsurvey/ggsurvey.pdf) function offers an
+excellent range of options for plotting with complex survey design. It is part of the larger
+[questionr](https://juba.github.io/questionr/) package, which packages several survey functions.
+
+`ggsurvey` is (to my understanding!) akin to wrapper for `ggplot2` that incorporates the estimate
+corrections provided by `survey` package calculations. Therefore, if you already know ggplot
+grammar, you know how to make survey design corrected plot [^1].
+
+[^1]: Double-check the data documentation for plots with more complicated statistics, e.g. geom
+    smooth functions.
+
+The hegemony of ggplot grammar also makes it much easier to get help debugging your plots on forums
+like Stack Overflow.
+
+```{r ggsurvey plot 1}
+ggsurvey(design1) +
+    aes(x = FrequencyHelpHousework, fill = Gender) +
+    geom_bar(position = "fill") +
+  labs(title = "Frequency of housework by gender",
+       subtitle = "Children in England, aged 12",
+       caption = "Data drawn from age 12 of the Children's Worlds Survey")
+```
+
+As with other `ggplot2` objects, we can make this a lot prettier by customising the colour schemes
+and themes.
+
+We can see what colour schemes are available from `RColorBrewer` using
+
+```{r colour schemes}
+RColorBrewer::display.brewer.all()
+```
+
+```{r prettier plot}
+ggsurvey(design1) +
+    aes(x = FrequencyHelpHousework, fill = Gender) +
+    geom_bar(position = "fill") + scale_fill_brewer(palette = "Blues") +
+  labs(title = "Frequency of housework by gender",
+       subtitle = "Children in England, aged 12",
+       caption = "Data drawn from age 12 of the Children's Worlds Survey")
+```
+
+We can also utilise the `ggthemes` package for pre-set colour schemes and other plotting options.
+
+```{r prettier plot 2}
+ggsurvey(design1) +
+    aes(x = FrequencyHelpHousework, fill = Gender) +
+    geom_bar(position = "fill") + scale_fill_brewer(palette = "Blues") +
+  labs(title = "Frequency of housework by gender",
+       subtitle = "Children in England, aged 12",
+       caption = "Data drawn from age 12 of the Children's Worlds Survey") +
+  ggthemes::theme_economist_white()
+
+```
+
+### Changing geometries
+
+There are many geometries available, including boxplots.
+
+::: callout-important
+The boxplot geometry requires an underlying package `quantreg` which is not currently included in
+the original install. If your are getting an error check to ensure that this package is installed
+and loaded in your R session.
+:::
+
+```{r prettier boxplot, warning=F}
+ggsurvey(design1) +
+    aes(y=FeelPositiveFuture,
+        x=HomeType,
+        fill=HomeType) + geom_boxplot() +
+  scale_fill_brewer(palette = "Paired") + theme_classic() +
+  labs(title = "Feelings of positivity by living situation",
+       subtitle = "Children in England, aged 12",
+       caption = "Data drawn from age 12 of the Children's Worlds Survey") 
+```
+
+----------------------------------------------------------------------------------------------------
+
+## Task 7
+
+> Make your own plot!
+
+-   Try customising colours, labels, or types!
+
+Look at the data documentation for
+[questionr](https://cran.r-project.org/web/packages/questionr/questionr.pdf) (the ggsurvey function
+is located on page 18) and [ggplot2](https://ggplot2.tidyverse.org/reference/) and [more ggplot2,
+including cheat sheets](https://ggplot2.tidyverse.org/)
+
+```{r task 3}
+## write your own code! Look at the previous chunks for help.
+
+
+
+
+```
+
+::: {.callout-note appearance="minimal" icon="false"}
+**Next**: Go to Part 2.1: Regressions
+:::

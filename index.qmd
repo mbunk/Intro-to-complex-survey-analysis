@@ -1,0 +1,45 @@
+---
+title: "Complex survey data in R"
+about:
+  template: solana
+---
+
+## Summary
+
+This quarto website hosts all of the learning materials for the workshop **"Introduction to Working with Complex Survey Data in R"**, which is set to run on the 20th of August, 2024.
+
+Funding for this workshop was provided by the UK Economic and Social Research Council (ESRC) and Scottish Funding Council as part of the Scottish Graduate School of Social Science (SGSSS) 2023/24 training programme.
+
+------------------------------------------------------------------------
+
+## Problem statement
+
+Many popular social science datasets are collected with complex sampling designs which violate the basic assumptions of a simple random sample.
+
+Traditional approaches have required proprietary software, such as Stata or Mplus, to accommodate complex sampling. Thomas Lumley's **Survey** package for R changed the game, providing an open source alternative.
+
+This tutorial serves as in introduction to analysing datasets with complex sampling and/or weighting requirements.
+
+------------------------------------------------------------------------
+
+## Learning outcomes
+
+Key learning outcomes include:
+
+1.  Import and wrangle .dta data files in R
+2.  Set a survey design object
+3.  Estimate and report descriptive statistics using survey weighting
+4.  Data visualisation using survey weighting
+5.  Regression models with complex sampling
+
+------------------------------------------------------------------------
+
+## Resources
+
+In the first instance, please reference the data documentation for the packages utilised in this workshop.
+
+-   [survey](http://r-survey.r-forge.r-project.org/survey/)
+-   [gtsummary](https://www.danieldsjoberg.com/gtsummary/)
+-   [tidyverse](https://www.tidyverse.org/), particularly [dplyr](https://dplyr.tidyverse.org/) and [ggplot2](https://ggplot2.tidyverse.org/)
+-   [questionr](https://juba.github.io/questionr/)
+-   [jtools](https://cran.r-project.org/web/packages/jtools/jtools.pdf)
