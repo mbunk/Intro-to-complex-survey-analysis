@@ -1,0 +1,17 @@
+[
+  {
+    "listing": "/part-1.html",
+    "items": [
+      "/part1/part_1-1.html",
+      "/part1/part_1-2.html",
+      "/part1/part_1-3.html"
+    ]
+  },
+  {
+    "listing": "/part-2.html",
+    "items": [
+      "/part2/part_2-1.html",
+      "/part2/part_2-2.html"
+    ]
+  }
+]
