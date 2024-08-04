@@ -1,12 +1,11 @@
 ## Quarto files
 *.png
-*.html
 *.Rproj
 *.json
 *.js
-.quarto\xref\*
+/.quarto/
 *.Rprofile
-.quarto*
+*html
 
 # History files
 .Rhistory
